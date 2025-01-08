@@ -85,7 +85,6 @@ bool StreamDock::set_full_background(unsigned char *img_buf) {
 bool StreamDock::set_cell_background(enum key key, std::string path) {
         unsigned char real_key;
     if (key == 0xff) {
-        std::cout << "ekljwlkef" << std::endl;
         real_key = key;
     } else {
         real_key = ((key - 1) % 5) + 5 * (2 - (key - 1) / 5) + 1;
@@ -112,7 +111,6 @@ bool StreamDock::clear_cell_background(enum key key) {
     // also this sucks generally since it doesn't fully clear the clear_cell_background
     unsigned char real_key;
     if (key == 0xff) {
-        std::cout << "ekljwlkef" << std::endl;
         real_key = key;
     } else {
         real_key = ((key - 1) % 5) + 5 * (2 - (key - 1) / 5) + 1;

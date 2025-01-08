@@ -1,5 +1,12 @@
+# Open Libtransport
+An open source reimplementation of the MiraBox Stream Dock Protocol (Reverse-Engineered from the proprietary libtransport.so)
+
+
+# Usage
+
 Enabling permissions:
-In `/etc/udev/rules.d/10-streamdeck.rules`:
+
+In `/etc/udev/rules.d/10-streamdock.rules`:
 ```
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="VID", GROUP="users", TAG+="uaccess"
 ```
@@ -19,4 +26,4 @@ sudo udevadm control --reload-rules
 
 
 
-THANK YOU TO https://github.com/nothings/stb
+THANK YOU TO https://github.com/nothings/stb FOR THE EXAMPLE

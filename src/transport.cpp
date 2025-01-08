@@ -15,15 +15,17 @@ int main(void) {
     int x,y,n;
     unsigned char *data = stbi_load("flower_power.png", &x, &y, &n, 3);
     if (data == NULL) {
-        std::cout << "AAAA" <<std::endl;
+        std::cout << "Failed to load image." <<std::endl;
         return 1;
     }
+    std::cout << "Setting the background image..." << std::endl;
     const auto start = std::chrono::system_clock::now();
+    dock->refresh();
     dock->set_full_background(data);
     const auto end = std::chrono::system_clock::now();
     stbi_image_free(data);
     const std::chrono::duration<double> diff = end - start;
-    std::cout << diff.count() << std::endl;
+    std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
     while (true) {
@@ -33,18 +35,12 @@ int main(void) {
             std::cout << " down." << std::endl;
         } else {
             std::cout << " up." << std::endl;
-            //dock->clear_cell_background(key.key);
         }
         if (key.key == 15) {
             dock->toggle_screen();
          } else if (key.key == 14 && !key.down) {
-            dock->clear_full_background();
-            dock->refresh();
-        } else if (key.key == 13 && !key.down) {
-            dock->set_cell_background(KEY_13, "Temporary.jpg");
-            dock->refresh();
+            dock->clear_cell_background(key.key);
         }
-
     }
     return 0;
 }
