@@ -1,6 +1,7 @@
 # Open Libtransport
 An open source reimplementation of the MiraBox Stream Dock Protocol (Reverse-Engineered from the proprietary libtransport.so)
 
+See `docs/` for information on hardware quirks and an explaination of the protocol.
 
 # Usage
 
