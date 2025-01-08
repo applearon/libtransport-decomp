@@ -1,7 +1,5 @@
-
-
 Enabling permissions:
-in `/etc/udev/rules.d/10-streamdeck.rules`:
+In `/etc/udev/rules.d/10-streamdeck.rules`:
 ```
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="VID", GROUP="users", TAG+="uaccess"
 ```
@@ -18,4 +16,7 @@ Then run:
 ```
 sudo udevadm control --reload-rules 
 ```
+
+
+
 THANK YOU TO https://github.com/nothings/stb
