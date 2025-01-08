@@ -3,6 +3,7 @@
 #include<hidapi/hidapi_libusb.h>
 #include"packets.hpp"
 #include<string>
+constexpr size_t PACKET_SIZE = 512;
 
 class StreamDock {
     private:

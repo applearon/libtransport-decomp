@@ -13,7 +13,7 @@ int main(void) {
     dock->refresh();
     dock->set_brightness(100);
     int x,y,n;
-    unsigned char *data = stbi_load("flower_power.png", &x, &y, &n, 3);
+    unsigned char *data = stbi_load("the_lads.png", &x, &y, &n, 3);
     if (data == NULL) {
         std::cout << "Failed to load image." <<std::endl;
         return 1;
