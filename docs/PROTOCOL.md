@@ -6,3 +6,9 @@ As an example, the "BEGIN" packet, sent before every command, are the 3 unsigned
 For the definitions of each packet, see packets.hpp.
 
 Large binary data is sent in chunks of 513 (`\0` followed by 512 bytes of data). This appears to be an arbitrary choice, as other packet chunk sizes are also effective, however I noticed that the data transfer speed is slower at other sizes.
+
+
+## Images
+There are 2 ways that image data is sent to the device. You can send the entire background as raw image data, or you can send induvidual (100x100) jpgs for each button (does not fill the entire cell, usually centered).
+Naturally, sending the jpg is significantly faster than the raw image data(<1sec vs ~5sec), but cannot fill the entire screen.
+
