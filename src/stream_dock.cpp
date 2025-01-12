@@ -8,11 +8,19 @@
 //#include<vector>
 #include<fstream>
 #include<string>
+#include<limits>
 
 void swap_bytes(unsigned char *data, int size) {
     for (int i = 0; i < size/2; ++i) {
         std::swap(data[i], data[size-i-1]);
     }
+}
+
+void dump_str(unsigned char *data, int size) {
+    for (int i=0; i < size; ++i) {
+        std::cout << (int) data[i] << " ";
+    }
+    std::cout << std::endl;
 }
 
 StreamDock::StreamDock() {
@@ -59,7 +67,13 @@ bool StreamDock::toggle_screen() {
 }
 
 bool StreamDock::send_wakeup() {
-    return toggle_screen(true);
+    unsigned char out[13] = GEN_PACKET(SET_CELL_IMG SPACER_PACKET 1, 0, KEY_1);
+
+    hid_write(this->hid, out, PACKET_SIZE + 1);
+    unsigned char out2[PACKET_SIZE + 1];
+    memset(out2, 0, PACKET_SIZE+1);
+    hid_write(this->hid, out2, PACKET_SIZE + 1);
+    return true;
 }
 
 bool StreamDock::set_full_background(unsigned char *img_buf) {
@@ -82,15 +96,23 @@ bool StreamDock::set_cell_background(enum key key, std::string path) {
     } else {
         real_key = ((key - 1) % 5) + 5 * (2 - (key - 1) / 5) + 1;
     }
-    unsigned char out[PACKET_SIZE + 1] = GEN_PACKET(SET_CELL_IMG SPACER_PACKET 14, 149, real_key);
-    hid_write(this->hid, out, PACKET_SIZE + 1);
+    //std::cout << "awa" << (int) key << std::endl;
     std::ifstream file_stream;
     file_stream.open(path);
+    file_stream.ignore( std::numeric_limits<std::streamsize>::max() );
+    std::streamsize jpg_length = file_stream.gcount();
+    file_stream.clear();   //  Since ignore will have set eof.
+    file_stream.seekg( 0, std::ios_base::beg );
+    unsigned char size_bigger = jpg_length >> 8;
+    unsigned char size_smaller = jpg_length % 256; 
+    unsigned char out[PACKET_SIZE + 1] = GEN_PACKET(SET_CELL_IMG SPACER_PACKET size_bigger, size_smaller, real_key);
+    hid_write(this->hid, out, PACKET_SIZE + 1);
+    //std::cout << "uwu: " << length << std::endl;
     unsigned char img_out[PACKET_SIZE + 1] = {'\0'};
     while (file_stream.good()) {
         memset(img_out+1, 0, PACKET_SIZE);
         file_stream.read((char*)(&img_out[1]), PACKET_SIZE);
-        std::cout << "uwu: " << img_out << (int) img_out[PACKET_SIZE] << std::endl;
+        //dump_str(img_out, PACKET_SIZE);
         hid_write(this->hid, img_out, PACKET_SIZE + 1);
     }
     return true;
@@ -98,7 +120,7 @@ bool StreamDock::set_cell_background(enum key key, std::string path) {
 
 
 bool StreamDock::clear_cell_background(enum key key) {
-    // this really shouldn't be neccesarily but for some reason
+    // this really shouldn't be neccesary but for some reason
     // the key is vertically flipped
     //
     // also this sucks generally since it doesn't fully clear the clear_cell_background
@@ -108,7 +130,7 @@ bool StreamDock::clear_cell_background(enum key key) {
     } else {
         real_key = ((key - 1) % 5) + 5 * (2 - (key - 1) / 5) + 1;
     }
-    unsigned char out[PACKET_SIZE + 1] =  GEN_PACKET(CLEAR_PACKET SPACER_PACKET 0, (unsigned char) real_key);
+    unsigned char out[PACKET_SIZE + 1] =  GEN_PACKET(CLEAR_PACKET SPACER_PACKET 0, real_key);
     hid_write(this->hid, out, PACKET_SIZE + 1);
     return true;
 }
@@ -120,7 +142,11 @@ bool StreamDock::clear_full_background() {
 struct key_input StreamDock::read() {
     struct key_input key;
     hid_read(this->hid, this->buf, PACKET_SIZE + 1);
+    //dump_str(this->buf, PACKET_SIZE + 1);
     key.key = static_cast<enum key>(buf[9]);
     key.down = buf[10] == 0x01;
     return key;
 }
+
+
+
