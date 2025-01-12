@@ -1,0 +1,2 @@
+ffmpeg -i 【東方】Bad\ Apple\!\!\ ＰＶ【影絵】\ \[FtutLA63Cp8\].mp4 -vf scale=100:-2,setsar=1:1,hflip,vflip out%d.jpg
+
