@@ -94,6 +94,9 @@ bool StreamDock::set_cell_background(enum key key, std::string path) {
     if (key == 0xff) {
         real_key = key;
     } else {
+        // thank you to my friend for find this extremely cursed code
+        // all it does is turns 1-5 -> 11-15, 6-10 -> 6-10, 11-15 -> 1-5
+        // ie "vertically flipping" the keys
         real_key = ((key - 1) % 5) + 5 * (2 - (key - 1) / 5) + 1;
     }
     //std::cout << "awa" << (int) key << std::endl;
