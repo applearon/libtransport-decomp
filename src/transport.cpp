@@ -4,15 +4,15 @@
 #include "stream_dock.hpp"
 #include"packets.hpp"
 #include<chrono>
-//#include<thread>
 #define STB_IMAGE_IMPLEMENTATION
 #include"stb_image.h"
 
 #define MAX_STR 255
 
 void bad_apple(StreamDock *dock) {
+    std::cout << "Starting bad apple..." << std::endl;
     const size_t total_frames = 6572;
-    const auto ms_per_frame = std::chrono::nanoseconds(33333333);
+    const auto ms_per_frame = std::chrono::nanoseconds(33333333); // 30fps
     const auto begin = std::chrono::system_clock::now();
     std::chrono::duration<double> diff;
     size_t next_frame = 1;
@@ -22,20 +22,24 @@ void bad_apple(StreamDock *dock) {
             diff = start - begin;
             last_frame = next_frame;
             next_frame = diff / ms_per_frame;
+            if (next_frame == 0) {
+                next_frame = 1;
+            }
             if (last_frame == next_frame) {
                 continue;
             }
-            std::cout << next_frame << std::endl;
+            if (next_frame - last_frame == 2) {
+                std::cout << "Skipping frame " << last_frame + 1 << std::endl;
+            } else if (next_frame - last_frame != 1) {
+                std::cout << "nf: " << next_frame << ", diff: " << diff.count() << std::endl;
+                std::cout << "Skipping frame(s) " << last_frame + 1 << " to " << next_frame - 1 << std::endl;
+            }
             if (next_frame > total_frames) {
                 break;
             }
             std::string path = "bad_apple/out" + std::to_string(next_frame) + ".jpg";
             dock->set_cell_background(KEY_8, path);
             dock->refresh();
-            //const auto end = std::chrono::system_clock::now();
-            //diff = end - start;
-            //std::cout << diff.count() << std::endl;
-            //std::this_thread::sleep_for(std::chrono::milliseconds(33) - diff);
     }
 }
 
@@ -73,23 +77,7 @@ int main(void) {
          } else if (key.key == 14 && !key.down) {
             dock->clear_cell_background(key.key);
         } else if (key.key == 13 && !key.down) {
-            const auto start = std::chrono::system_clock::now();
-            //for (int x = 1; x < 16; ++x) {
-            //    dock->set_cell_background(static_cast<enum key>(x), "SonicMiku-test.jpg");
-            //}
-            //dock->set_cell_background(KEY_11, "tall.jpg");
-            //dock->set_cell_background(KEY_12, "tall.jpg");
-            //dock->set_cell_background(KEY_13, "tall.jpg");
-            //dock->set_cell_background(KEY_14, "tall.jpg");
-            //dock->set_cell_background(KEY_15, "tall.jpg");
-            //dock->set_cell_background(KEY_8,  "bad_apple/out113.jpg");
-            //dock->refresh();
             bad_apple(dock);
-            const auto end = std::chrono::system_clock::now();
-            const std::chrono::duration<double> diff = end - start;
-            std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
-            //dock->set_cell_background(KEY_8, "ibuki_rocking.jpg");
-            //dock->refresh();
         }
     }
     return 0;
