@@ -25,6 +25,14 @@ Then run:
 sudo udevadm control --reload-rules 
 ```
 
+# Compiling
+
+```
+mkdir build && cd build
+cmake ..
+make -j4
+```
+
 
 
 THANK YOU TO https://github.com/nothings/stb FOR THE EXAMPLE
