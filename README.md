@@ -32,7 +32,7 @@ mkdir build && cd build
 cmake ..
 make -j4
 ```
-
+Requires [cppzmq](https://github.com/zeromq/cppzmq)
 
 
 THANK YOU TO https://github.com/nothings/stb FOR THE EXAMPLE

@@ -19,6 +19,9 @@ add_executable(${BINARY_NAME} ${SRC_FILES})
 # Link libraries
 target_link_libraries(${BINARY_NAME} -lhidapi-libusb)
 
+find_package(cppzmq)
+target_link_libraries(${BINARY_NAME} cppzmq)
+
 # C++ standard
 #set(CMAKE_CXX_STANDARD 11)
 #set(CMAKE_CXX_STANDARD_REQUIRED True)

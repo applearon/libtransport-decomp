@@ -144,11 +144,16 @@ bool StreamDock::clear_full_background() {
 
 struct key_input StreamDock::read() {
     struct key_input key;
-    hid_read(this->hid, this->buf, PACKET_SIZE + 1);
+    int out = hid_read(this->hid, this->buf, PACKET_SIZE + 1);
+    good = out != -1;
     //dump_str(this->buf, PACKET_SIZE + 1);
     key.key = static_cast<enum key>(buf[9]);
     key.down = buf[10] == 0x01;
     return key;
+}
+
+bool StreamDock::is_good() {
+    return good;
 }
 
 

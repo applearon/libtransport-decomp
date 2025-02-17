@@ -11,6 +11,7 @@ class StreamDock {
         int pid = 0x1001;
         unsigned char buf[513];
         bool screen_on = true;
+        bool good = true;
     public:
         hid_device *hid = nullptr;
         StreamDock();
@@ -24,6 +25,7 @@ class StreamDock {
         bool clear_full_background();
         bool clear_cell_background(enum key key);
         bool send_wakeup();
+        bool is_good();
 };
 
 #endif

@@ -4,8 +4,12 @@
 #include "stream_dock.hpp"
 #include"packets.hpp"
 #include<chrono>
+#include <string>
 #define STB_IMAGE_IMPLEMENTATION
 #include"stb_image.h"
+
+#include <zmq.hpp>
+
 
 #define MAX_STR 255
 
@@ -44,6 +48,11 @@ void bad_apple(StreamDock *dock) {
 }
 
 int main(void) {
+    zmq::context_t context (1);
+    zmq::socket_t publisher (context, zmq::socket_type::pub);
+    publisher.bind("tcp://*:5556");
+    zmq::message_t message(2);
+
     StreamDock *dock = new StreamDock();
     dock->refresh();
     dock->set_brightness(100);
@@ -64,8 +73,14 @@ int main(void) {
     std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
-    while (true) {
+    while (dock->is_good()) {
         struct key_input key = dock->read();
+        message.rebuild(2);
+        message.data<unsigned char>()[0] = key.key;
+        message.data<unsigned char>()[1] = key.down;
+        //snprintf((char *) message.data(), 4, "%02d%d", key.key, key.down);
+        publisher.send(message, zmq::send_flags::none);
+        //strcpy(message.data<char>(), out.data());
         std::cout << "Key " << key.key << " pressed";
         if (key.down) {
             std::cout << " down." << std::endl;
