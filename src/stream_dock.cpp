@@ -27,9 +27,7 @@ StreamDock::StreamDock() {
         hid_init();
         hid = hid_open(vid, pid, NULL);
         if(hid == nullptr) {
-            std::cout << "Failed to open device" << std::endl;
-hid_exit();
-            exit(1);
+            good = false;
         };
         hid_set_nonblocking(hid, 0);
 };

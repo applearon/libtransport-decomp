@@ -54,6 +54,10 @@ int main(void) {
     zmq::message_t message(2);
 
     StreamDock *dock = new StreamDock();
+    if (!dock->is_good()) {
+        std::cout << "Failed to open device" << std::endl;
+        return 1;
+    }
     dock->refresh();
     dock->set_brightness(100);
     int x,y,n;
@@ -73,8 +77,12 @@ int main(void) {
     std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
-    while (dock->is_good()) {
+    while (true) {
         struct key_input key = dock->read();
+        if (!dock->is_good()) {
+            std::cout << "Device Disconnected" << std::endl;
+            return 1;
+        }
         message.rebuild(2);
         message.data<unsigned char>()[0] = key.key;
         message.data<unsigned char>()[1] = key.down;
