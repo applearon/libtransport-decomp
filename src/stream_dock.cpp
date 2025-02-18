@@ -29,7 +29,7 @@ StreamDock::StreamDock() {
         if(hid == nullptr) {
             good = false;
         };
-        hid_set_nonblocking(hid, 0);
+        hid_set_nonblocking(hid, 1);
 };
 
 bool StreamDock::set_brightness(int brightness) {
@@ -145,8 +145,15 @@ struct key_input StreamDock::read() {
     int out = hid_read(this->hid, this->buf, PACKET_SIZE + 1);
     good = out != -1;
     //dump_str(this->buf, PACKET_SIZE + 1);
-    key.key = static_cast<enum key>(buf[9]);
-    key.down = buf[10] == 0x01;
+    if (out == 0) { // no key_input
+        key.key = ALL_KEYS;
+    } else {
+        key.key = static_cast<enum key>(buf[9]);
+        key.down = buf[10] == 0x01;
+    }
+    if (key.key != ALL_KEYS) {
+        dump_str(buf, PACKET_SIZE + 1);
+    }
     return key;
 }
 

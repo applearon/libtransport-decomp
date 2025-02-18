@@ -7,6 +7,7 @@
 #include <string>
 #define STB_IMAGE_IMPLEMENTATION
 #include"stb_image.h"
+#include<thread>
 
 #include <zmq.hpp>
 
@@ -16,7 +17,9 @@
 void bad_apple(StreamDock *dock) {
     std::cout << "Starting bad apple..." << std::endl;
     const size_t total_frames = 6572;
-    const auto ms_per_frame = std::chrono::nanoseconds(33333333); // 30fps
+    constexpr size_t fps = 30;
+    size_t time_per_frame = 1000000000 / 30;
+    const auto ms_per_frame = std::chrono::nanoseconds(time_per_frame); // 30fps
     const auto begin = std::chrono::system_clock::now();
     std::chrono::duration<double> diff;
     size_t next_frame = 1;
@@ -33,7 +36,7 @@ void bad_apple(StreamDock *dock) {
                 continue;
             }
             if (next_frame - last_frame == 2) {
-                std::cout << "Skipping frame " << last_frame + 1 << std::endl;
+                //std::cout << "Skipping frame " << last_frame + 1 << std::endl;
             } else if (next_frame - last_frame != 1) {
                 std::cout << "nf: " << next_frame << ", diff: " << diff.count() << std::endl;
                 std::cout << "Skipping frame(s) " << last_frame + 1 << " to " << next_frame - 1 << std::endl;
@@ -48,6 +51,7 @@ void bad_apple(StreamDock *dock) {
 }
 
 int main(void) {
+    std::thread apple;
     zmq::context_t context (1);
     zmq::socket_t publisher (context, zmq::socket_type::pub);
     publisher.bind("tcp://*:5556");
@@ -77,12 +81,14 @@ int main(void) {
     std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
+    bool running = true;
     while (true) {
         struct key_input key = dock->read();
         if (!dock->is_good()) {
             std::cout << "Device Disconnected" << std::endl;
             return 1;
         }
+        if (key.key == ALL_KEYS) continue; // no input detected
         message.rebuild(2);
         message.data<unsigned char>()[0] = key.key;
         message.data<unsigned char>()[1] = key.down;
@@ -95,13 +101,16 @@ int main(void) {
         } else {
             std::cout << " up." << std::endl;
         }
-        if (key.key == 15) {
-            dock->toggle_screen();
-         } else if (key.key == 14 && !key.down) {
-            dock->clear_cell_background(key.key);
-        } else if (key.key == 13 && !key.down) {
-            bad_apple(dock);
-        }
+        //if (key.key == 15) {
+        //    dock->toggle_screen();
+        // } else if (key.key == 14 && !key.down) {
+        //    dock->clear_cell_background(key.key);
+        //} else if (key.key == 13 && !key.down) {
+        //    apple = std::thread(bad_apple, dock);
+        //    //running = false;
+        //    //apple.join();
+        //    //bad_apple(dock);
+        //}
     }
     return 0;
 }
