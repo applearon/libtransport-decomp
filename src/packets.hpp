@@ -33,4 +33,21 @@ struct key_input {
     enum key key;
     bool down;
 };
+
+
+
+/*
+ * Our custom packet thingies
+ */
+enum out_packets {
+    RECV_GET_SCREEN_ON,
+    RECV_REFRESH,
+    RECV_SET_BRIGHTNESS,
+    RECV_TOGGLE_SCREEN,
+    RECV_SET_FULL_BACKGROUND,
+    RECV_SET_CELL_BACKGROUND,
+    RECV_CLEAR_CELL_BACKGROUND,
+    RECV_WAKEUP,
+    RECV_STATUS
+};
 #endif

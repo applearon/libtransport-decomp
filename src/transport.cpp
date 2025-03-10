@@ -52,10 +52,12 @@ void bad_apple(StreamDock *dock) {
 
 int main(void) {
     std::thread apple;
-    zmq::context_t context (1);
+    zmq::context_t context (2); // idk what the 2 is tbh
     zmq::socket_t publisher (context, zmq::socket_type::pub);
-    publisher.bind("tcp://*:5556");
-    zmq::message_t message(2);
+    zmq::socket_t replier (context, zmq::socket_type::rep);
+    publisher.bind("tcp://*:40289");
+    replier.bind("tcp://*:40389");
+    zmq::message_t key_out(2);
 
     StreamDock *dock = new StreamDock();
     if (!dock->is_good()) {
@@ -83,18 +85,54 @@ int main(void) {
     std::cout << "Starting Loop" << std::endl;
     bool running = true;
     while (true) {
+        zmq::message_t request;
+        auto res = replier.recv (request, zmq::recv_flags::dontwait);
+        if (res != std::nullopt) {
+            unsigned char *cmd = (unsigned char *) request.data();
+            switch ((int) cmd[0]) {
+                case RECV_GET_SCREEN_ON: {
+                    zmq::message_t reply (1);
+                    reply.data<unsigned char>()[0] = dock->is_screen_on();
+                    //memcpy (reply.data (), dock->is_screen_on(), 1);
+                   replier.send (reply, zmq::send_flags::none);
+                } break;
+                case RECV_REFRESH: {
+                    zmq::message_t reply(1);
+                    reply.data<unsigned char>()[0] = dock->refresh();
+                    replier.send(reply, zmq::send_flags::none);
+                } break;
+                case RECV_SET_BRIGHTNESS: {
+                    zmq::message_t reply(1);
+                    reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
+                    replier.send(reply, zmq::send_flags::none);
+                } break;
+                case RECV_TOGGLE_SCREEN: {} break;
+                case RECV_SET_FULL_BACKGROUND: {} break;
+                case RECV_SET_CELL_BACKGROUND: {} break;
+                case RECV_CLEAR_CELL_BACKGROUND: {} break;
+                case RECV_WAKEUP: {
+                    zmq::message_t reply(1);
+                    reply.data<unsigned char>()[0] = dock->send_wakeup();
+                    replier.send(reply, zmq::send_flags::none);
+                } break;
+                case RECV_STATUS: {} break;
+            }
+        }
         struct key_input key = dock->read();
         if (!dock->is_good()) {
-            std::cout << "Device Disconnected" << std::endl;
-            return 1;
+            std::cout << "Device Disconnected. Reconnecting..." << std::endl;
+            while (!dock->is_good()) {
+                hid_exit();
+                delete dock;
+                dock = new StreamDock();
+            }
+            std::cout << "Reconnected!" << std::endl;
         }
         if (key.key == ALL_KEYS) continue; // no input detected
-        message.rebuild(2);
-        message.data<unsigned char>()[0] = key.key;
-        message.data<unsigned char>()[1] = key.down;
-        //snprintf((char *) message.data(), 4, "%02d%d", key.key, key.down);
-        publisher.send(message, zmq::send_flags::none);
-        //strcpy(message.data<char>(), out.data());
+        key_out.rebuild(2);
+        key_out.data<unsigned char>()[0] = key.key;
+        key_out.data<unsigned char>()[1] = key.down;
+        publisher.send(key_out, zmq::send_flags::none);
         std::cout << "Key " << key.key << " pressed";
         if (key.down) {
             std::cout << " down." << std::endl;

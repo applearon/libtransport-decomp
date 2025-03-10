@@ -26,10 +26,11 @@ void dump_str(unsigned char *data, int size) {
 StreamDock::StreamDock() {
         hid_init();
         hid = hid_open(vid, pid, NULL);
-        if(hid == nullptr) {
+        if (hid == nullptr) {
             good = false;
-        };
-        hid_set_nonblocking(hid, 1);
+        } else {
+            hid_set_nonblocking(hid, 1);
+        }
 };
 
 bool StreamDock::set_brightness(int brightness) {
@@ -141,7 +142,8 @@ bool StreamDock::clear_full_background() {
 }
 
 struct key_input StreamDock::read() {
-    struct key_input key;
+    struct key_input key = {ALL_KEYS, true};
+    if (!good) return key;
     int out = hid_read(this->hid, this->buf, PACKET_SIZE + 1);
     good = out != -1;
     //dump_str(this->buf, PACKET_SIZE + 1);
@@ -151,9 +153,9 @@ struct key_input StreamDock::read() {
         key.key = static_cast<enum key>(buf[9]);
         key.down = buf[10] == 0x01;
     }
-    if (key.key != ALL_KEYS) {
-        dump_str(buf, PACKET_SIZE + 1);
-    }
+    //if (key.key != ALL_KEYS) {
+    //    dump_str(buf, PACKET_SIZE + 1);
+    //}
     return key;
 }
 
@@ -161,5 +163,7 @@ bool StreamDock::is_good() {
     return good;
 }
 
-
+bool StreamDock::is_screen_on() {
+    return screen_on;
+}
 

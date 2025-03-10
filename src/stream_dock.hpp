@@ -26,6 +26,7 @@ class StreamDock {
         bool clear_cell_background(enum key key);
         bool send_wakeup();
         bool is_good();
+        bool is_screen_on();
 };
 
 #endif
