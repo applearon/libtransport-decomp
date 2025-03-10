@@ -28,6 +28,12 @@ with uinput.UInput() as ui:
         down = "down" if string[1] == 1 else "up"
         key = string[0]
         print("Key " + str(key) + " was pressed " + down)
+        if down == "up":
+            continue
+        if key == 1:
+            sender.send(bytes([packet_names.SEND_WAKEUP.value]))
+            status = "succeeded" if sender.recv()[0] == 1 else "failed"
+            print("wake up screen " + status)
         if key == 5:
             sender.send(bytes([packet_names.SEND_GET_SCREEN_ON.value]))
             status = "on" if sender.recv()[0] == 1 else "off"

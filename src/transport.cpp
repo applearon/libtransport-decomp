@@ -11,14 +11,13 @@
 
 #include <zmq.hpp>
 
-
 #define MAX_STR 255
 
 void bad_apple(StreamDock *dock) {
     std::cout << "Starting bad apple..." << std::endl;
     const size_t total_frames = 6572;
     constexpr size_t fps = 30;
-    size_t time_per_frame = 1000000000 / 30;
+    size_t time_per_frame = 1000000000 / fps;
     const auto ms_per_frame = std::chrono::nanoseconds(time_per_frame); // 30fps
     const auto begin = std::chrono::system_clock::now();
     std::chrono::duration<double> diff;
@@ -83,7 +82,6 @@ int main(void) {
     std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
-    bool running = true;
     while (true) {
         zmq::message_t request;
         auto res = replier.recv (request, zmq::recv_flags::dontwait);
@@ -103,10 +101,22 @@ int main(void) {
                 } break;
                 case RECV_SET_BRIGHTNESS: {
                     zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
+                    if (request.size() != 2) { // 2 bytes needed, packet and size
+                        reply.data<unsigned char>()[0] = false;
+                    } else {
+                        reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
+                    }
                     replier.send(reply, zmq::send_flags::none);
                 } break;
-                case RECV_TOGGLE_SCREEN: {} break;
+                case RECV_TOGGLE_SCREEN: {
+                    zmq::message_t reply(1);
+                    if (request.size() != 2) {
+                        reply.data<unsigned char>()[0] = dock->toggle_screen();
+                    } else {
+                        reply.data<unsigned char>()[0] = dock->toggle_screen((bool) cmd[1]);
+                    }
+                    replier.send(reply, zmq::send_flags::none);
+                } break;
                 case RECV_SET_FULL_BACKGROUND: {} break;
                 case RECV_SET_CELL_BACKGROUND: {} break;
                 case RECV_CLEAR_CELL_BACKGROUND: {} break;
