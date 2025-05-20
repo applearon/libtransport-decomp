@@ -2,17 +2,24 @@
 import zmq
 from evdev import uinput, ecodes as e
 from enum import Enum
+import io
+from PIL import Image
 
-class packet_names(Enum):
-    SEND_GET_SCREEN_ON  = 0
-    SEND_REFRESH = 1
-    SEND_SET_BRIGHTNESS = 2
-    SEND_TOGGLE_SCREEN = 3
-    SEND_SET_FULL_BACKGROUND = 4
-    SEND_SET_CELL_BACKGROUND = 5
-    SEND_CLEAR_CELL_BACKGROUND = 6
-    SEND_WAKEUP = 7
-    SEND_STATUS = 8
+img = Image.open("flower_power.png", mode='r').convert("RGB")
+
+
+packet = {
+    "SEND_GET_SCREEN_ON": b'\x00',
+    "SEND_REFRESH": b'\x01',
+    "SEND_SET_BRIGHTNESS": b'\x02',
+    "SEND_TOGGLE_SCREEN": b'\x03',
+    "SEND_SET_FULL_BACKGROUND": b'\x04',
+    "SEND_SET_CELL_BACKGROUND": b'\x05',
+    "SEND_CLEAR_CELL_BACKGROUND": b'\x06',
+    "SEND_WAKEUP": b'\x07',
+    "SEND_STATUS": b'\x08'
+
+}
 
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
@@ -22,6 +29,11 @@ socket.connect("tcp://localhost:40289")
 socket.setsockopt_string(zmq.SUBSCRIBE, "")
 sender.connect("tcp://localhost:40389")
 
+#sender.send(packet["SEND_SET_FULL_BACKGROUND"] + img.tobytes())
+#status = "succeeded" if sender.recv()[0] == 1 else "failed"
+#sender.send(packet["SEND_REFRESH"])
+#print(sender.recv())
+
 with uinput.UInput() as ui:
     while True:
         string = socket.recv()
@@ -30,19 +42,34 @@ with uinput.UInput() as ui:
         print("Key " + str(key) + " was pressed " + down)
         if down == "up":
             continue
-        if key == 1:
-            sender.send(bytes([packet_names.SEND_WAKEUP.value]))
-            status = "succeeded" if sender.recv()[0] == 1 else "failed"
-            print("wake up screen " + status)
         if key == 5:
-            sender.send(bytes([packet_names.SEND_GET_SCREEN_ON.value]))
+            sender.send(packet["SEND_GET_SCREEN_ON"])
             status = "on" if sender.recv()[0] == 1 else "off"
             print("The screen is " + status)
         if key == 6:
-            sender.send(bytes([packet_names.SEND_REFRESH.value]))
+            sender.send(packet["SEND_REFRESH"])
             status = "succeeded" if sender.recv()[0] == 1 else "failed"
             print("The screen refresh " + status)
         if key == 7:
-            sender.send(bytes([packet_names.SEND_SET_BRIGHTNESS.value, 100]))
+            sender.send(packet["SEND_SET_BRIGHTNESS"] + bytes([100]))
             status = "succeeded" if sender.recv()[0] == 1 else "failed"
             print("set brightness " + status)
+        if key == 15:
+            ui.write(e.EV_KEY, e.KEY_M, 1)
+            ui.write(e.EV_KEY, e.KEY_M, 0)
+            ui.write(e.EV_KEY, e.KEY_E, 1)
+            ui.write(e.EV_KEY, e.KEY_E, 0)
+            ui.write(e.EV_KEY, e.KEY_A, 1)
+            ui.write(e.EV_KEY, e.KEY_A, 0)
+            ui.write(e.EV_KEY, e.KEY_T, 1)
+            ui.write(e.EV_KEY, e.KEY_T, 0)
+            ui.write(e.EV_KEY, e.KEY_CAPSLOCK, 1)
+            ui.write(e.EV_KEY, e.KEY_CAPSLOCK, 0)
+            ui.write(e.EV_KEY, e.KEY_LEFTALT, 1)
+            ui.write(e.EV_KEY, e.KEY_TAB, 1)
+            ui.write(e.EV_KEY, e.KEY_LEFTALT, 0)
+            ui.write(e.EV_KEY, e.KEY_TAB, 0) 
+            ui.write(e.EV_KEY, e.KEY_SYSRQ, 1)
+            ui.write(e.EV_KEY, e.KEY_SYSRQ, 0)
+            ui.syn()
+

@@ -11,4 +11,5 @@ Large binary data is sent in chunks of 513 (`\0` followed by 512 bytes of data).
 ## Images
 There are 2 ways that image data is sent to the device. You can send the entire background as raw image data, or you can send induvidual (100x100) jpgs for each button (does not fill the entire cell, usually centered).
 Naturally, sending the jpg is significantly faster than the raw image data(<1sec vs ~5sec), but cannot fill the entire screen.
-
+## TODO: 
+mention jpeg progressive format needed

@@ -20,7 +20,7 @@ class StreamDock {
         struct key_input read();
         bool toggle_screen(bool on);
         bool toggle_screen();
-        bool set_full_background(unsigned char *img_buf);
+        bool set_full_background(unsigned char *img_buf); // 480x800(x3 colours)
         bool set_cell_background(enum key key, std::string path);
         bool clear_full_background();
         bool clear_cell_background(enum key key);

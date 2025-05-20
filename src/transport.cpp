@@ -49,6 +49,63 @@ void bad_apple(StreamDock *dock) {
     }
 }
 
+void handle_recv(zmq::context_t &context, StreamDock *dock, zmq::socket_t &replier) {
+    zmq::message_t request;
+    auto res = replier.recv (request, zmq::recv_flags::dontwait);
+    if (res != std::nullopt) {
+        unsigned char *cmd = (unsigned char *) request.data();
+        switch ((int) cmd[0]) {
+            case RECV_GET_SCREEN_ON: {
+                zmq::message_t reply (1);
+                reply.data<unsigned char>()[0] = dock->is_screen_on();
+                //memcpy (reply.data (), dock->is_screen_on(), 1);
+               replier.send (reply, zmq::send_flags::none);
+            } break;
+            case RECV_REFRESH: {
+                zmq::message_t reply(1);
+                reply.data<unsigned char>()[0] = dock->refresh();
+                replier.send(reply, zmq::send_flags::none);
+            } break;
+            case RECV_SET_BRIGHTNESS: {
+                zmq::message_t reply(1);
+                if (request.size() != 2) { // 2 bytes needed, packet and size
+                    reply.data<unsigned char>()[0] = false;
+                } else {
+                    reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
+                }
+                replier.send(reply, zmq::send_flags::none);
+            } break;
+            case RECV_TOGGLE_SCREEN: {
+                zmq::message_t reply(1);
+                if (request.size() != 2) {
+                    reply.data<unsigned char>()[0] = dock->toggle_screen();
+                } else {
+                    reply.data<unsigned char>()[0] = dock->toggle_screen((bool) cmd[1]);
+                }
+                replier.send(reply, zmq::send_flags::none);
+            } break;
+            case RECV_SET_FULL_BACKGROUND: {
+                std::cout << "owo" << std::endl;
+                zmq::message_t reply(1);
+                if (request.size() != 1 + 480*800*3) {
+                    reply.data<unsigned char>()[0] = false;
+                    std::cout << request.size() << std::endl;
+                } else {
+                    reply.data<unsigned char>()[0] = dock->set_full_background(cmd + 1);
+                }
+                replier.send(reply, zmq::send_flags::none);
+            } break;
+            case RECV_SET_CELL_BACKGROUND: {} break;
+            case RECV_CLEAR_CELL_BACKGROUND: {} break;
+            case RECV_WAKEUP: {
+                zmq::message_t reply(1);
+                reply.data<unsigned char>()[0] = dock->send_wakeup();
+                replier.send(reply, zmq::send_flags::none);
+            } break;
+            case RECV_STATUS: {} break;
+        }
+    }
+}
 int main(void) {
     std::thread apple;
     zmq::context_t context (2); // idk what the 2 is tbh
@@ -74,7 +131,7 @@ int main(void) {
     std::cout << "Setting the background image..." << std::endl;
     const auto start = std::chrono::system_clock::now();
     dock->refresh();
-    dock->send_wakeup();
+    //dock->send_wakeup();
     //dock->set_full_background(data);
     const auto end = std::chrono::system_clock::now();
     stbi_image_free(data);
@@ -83,51 +140,7 @@ int main(void) {
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
     while (true) {
-        zmq::message_t request;
-        auto res = replier.recv (request, zmq::recv_flags::dontwait);
-        if (res != std::nullopt) {
-            unsigned char *cmd = (unsigned char *) request.data();
-            switch ((int) cmd[0]) {
-                case RECV_GET_SCREEN_ON: {
-                    zmq::message_t reply (1);
-                    reply.data<unsigned char>()[0] = dock->is_screen_on();
-                    //memcpy (reply.data (), dock->is_screen_on(), 1);
-                   replier.send (reply, zmq::send_flags::none);
-                } break;
-                case RECV_REFRESH: {
-                    zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->refresh();
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_SET_BRIGHTNESS: {
-                    zmq::message_t reply(1);
-                    if (request.size() != 2) { // 2 bytes needed, packet and size
-                        reply.data<unsigned char>()[0] = false;
-                    } else {
-                        reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
-                    }
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_TOGGLE_SCREEN: {
-                    zmq::message_t reply(1);
-                    if (request.size() != 2) {
-                        reply.data<unsigned char>()[0] = dock->toggle_screen();
-                    } else {
-                        reply.data<unsigned char>()[0] = dock->toggle_screen((bool) cmd[1]);
-                    }
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_SET_FULL_BACKGROUND: {} break;
-                case RECV_SET_CELL_BACKGROUND: {} break;
-                case RECV_CLEAR_CELL_BACKGROUND: {} break;
-                case RECV_WAKEUP: {
-                    zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->send_wakeup();
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_STATUS: {} break;
-            }
-        }
+        handle_recv(context, dock, replier);
         struct key_input key = dock->read();
         if (!dock->is_good()) {
             std::cout << "Device Disconnected. Reconnecting..." << std::endl;
