@@ -18,9 +18,9 @@
 
 void emit_ping_signal(DBusConnection* conn, std::string msg) {
     DBusMessage* signal = dbus_message_new_signal(
-        "/ca/applism/KeyObj",          // object path
-        "ca.applism.miradock",        // interface
-        "KeyPress"                        // signal name
+        "/ca/applism/MiraDock", // object path
+        "ca.applism.miradock",  // interface
+        "KeyPress"              // signal name
     );
 
     if (!signal) {
@@ -79,7 +79,7 @@ void bad_apple(StreamDock *dock) {
 }
 
 int main(void) {
-    std::thread apple;
+    //std::thread apple;
     StreamDock *dock = new StreamDock();
     DBusError derr;
     DBusConnection *dconn;
@@ -91,7 +91,7 @@ int main(void) {
         return 1;
     }
 
-    dock->refresh();
+    dock->refresh(); // Im like pretty sure we need this to start it up
     dock->set_brightness(100);
 
     dconn = dbus_bus_get(DBUS_BUS_SESSION, &derr);
@@ -121,6 +121,7 @@ int main(void) {
     const std::chrono::duration<double> diff = end - start;
     std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
+
     std::cout << "Starting Loop" << std::endl;
     while (true) {
         struct key_input key = dock->read();
@@ -148,7 +149,8 @@ int main(void) {
         // } else if (key.key == 14 && !key.down) {
         //    dock->clear_cell_background(key.key);
         //} else if (key.key == 13 && !key.down) {
-        //    apple = std::thread(bad_apple, dock);
+        //    //apple = std::thread(bad_apple, dock);
+        //    //std::cout << "uuw" << std::endl;
         //    //running = false;
         //    //apple.join();
         //    //bad_apple(dock);

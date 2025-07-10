@@ -32,7 +32,12 @@ mkdir build && cd build
 cmake ..
 make -j4
 ```
-Requires [cppzmq](https://github.com/zeromq/cppzmq)
+# DBus
+A dbus interface is opened to signal keypress events:
+Object Path: `/ca/applism/MiraDock`
+Interface: `ca.applism.miradock`
+Signal Name: `KeyPress`
+A simple python script to read keypresses can be found in `examples/mira_reader.py`
 
 
-THANK YOU TO https://github.com/nothings/stb FOR THE EXAMPLE
+THANK YOU TO https://github.com/nothings/stb
