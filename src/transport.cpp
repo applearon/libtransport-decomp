@@ -1,6 +1,8 @@
 #include <hidapi/hidapi.h>
 #include <hidapi/hidapi_libusb.h>
 #include<iostream>
+#include <iomanip>
+#include <sstream>
 #include "stream_dock.hpp"
 #include"packets.hpp"
 #include<chrono>
@@ -9,9 +11,36 @@
 #include"stb_image.h"
 #include<thread>
 
-#include <zmq.hpp>
+#include<dbus/dbus.h>
+
 
 #define MAX_STR 255
+
+void emit_ping_signal(DBusConnection* conn, std::string msg) {
+    DBusMessage* signal = dbus_message_new_signal(
+        "/ca/applism/KeyObj",          // object path
+        "ca.applism.miradock",        // interface
+        "KeyPress"                        // signal name
+    );
+
+    if (!signal) {
+        std::cerr << "Failed to create signal\n";
+        return;
+    }
+
+    DBusMessageIter args;
+    dbus_message_iter_init_append(signal, &args);
+    if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &msg)) {
+        std::cerr << "Out of memory when appending\n";
+        return;
+    }
+
+    if (!dbus_connection_send(conn, signal, nullptr)) {
+        std::cerr << "Out of memory when sending\n";
+    }
+    dbus_connection_flush(conn);
+    dbus_message_unref(signal);
+}
 
 void bad_apple(StreamDock *dock) {
     std::cout << "Starting bad apple..." << std::endl;
@@ -51,20 +80,31 @@ void bad_apple(StreamDock *dock) {
 
 int main(void) {
     std::thread apple;
-    zmq::context_t context (2); // idk what the 2 is tbh
-    zmq::socket_t publisher (context, zmq::socket_type::pub);
-    zmq::socket_t replier (context, zmq::socket_type::rep);
-    publisher.bind("tcp://*:40289");
-    replier.bind("tcp://*:40389");
-    zmq::message_t key_out(2);
-
     StreamDock *dock = new StreamDock();
+    DBusError derr;
+    DBusConnection *dconn;
+    
+    dbus_error_init(&derr);
+
     if (!dock->is_good()) {
         std::cout << "Failed to open device" << std::endl;
         return 1;
     }
+
     dock->refresh();
     dock->set_brightness(100);
+
+    dconn = dbus_bus_get(DBUS_BUS_SESSION, &derr);
+    if (dbus_error_is_set(&derr)) {
+        std::cerr << "Connection Error: " << derr.message << std::endl;
+        return 1;
+    }
+    int dbus_req_res = dbus_bus_request_name(dconn, "ca.applism.miradock", DBUS_NAME_FLAG_REPLACE_EXISTING, &derr);
+    if (dbus_error_is_set(&derr) || dbus_req_res != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+        std::cerr << "Failed to claim dbus name: " << derr.message << std::endl;
+        return 1;
+    }
+
     int x,y,n;
     unsigned char *data = stbi_load("flower_power.png", &x, &y, &n, 3);
     if (data == NULL) {
@@ -83,51 +123,6 @@ int main(void) {
     dock->refresh();
     std::cout << "Starting Loop" << std::endl;
     while (true) {
-        zmq::message_t request;
-        auto res = replier.recv (request, zmq::recv_flags::dontwait);
-        if (res != std::nullopt) {
-            unsigned char *cmd = (unsigned char *) request.data();
-            switch ((int) cmd[0]) {
-                case RECV_GET_SCREEN_ON: {
-                    zmq::message_t reply (1);
-                    reply.data<unsigned char>()[0] = dock->is_screen_on();
-                    //memcpy (reply.data (), dock->is_screen_on(), 1);
-                   replier.send (reply, zmq::send_flags::none);
-                } break;
-                case RECV_REFRESH: {
-                    zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->refresh();
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_SET_BRIGHTNESS: {
-                    zmq::message_t reply(1);
-                    if (request.size() != 2) { // 2 bytes needed, packet and size
-                        reply.data<unsigned char>()[0] = false;
-                    } else {
-                        reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
-                    }
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_TOGGLE_SCREEN: {
-                    zmq::message_t reply(1);
-                    if (request.size() != 2) {
-                        reply.data<unsigned char>()[0] = dock->toggle_screen();
-                    } else {
-                        reply.data<unsigned char>()[0] = dock->toggle_screen((bool) cmd[1]);
-                    }
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_SET_FULL_BACKGROUND: {} break;
-                case RECV_SET_CELL_BACKGROUND: {} break;
-                case RECV_CLEAR_CELL_BACKGROUND: {} break;
-                case RECV_WAKEUP: {
-                    zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->send_wakeup();
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_STATUS: {} break;
-            }
-        }
         struct key_input key = dock->read();
         if (!dock->is_good()) {
             std::cout << "Device Disconnected. Reconnecting..." << std::endl;
@@ -139,10 +134,9 @@ int main(void) {
             std::cout << "Reconnected!" << std::endl;
         }
         if (key.key == ALL_KEYS) continue; // no input detected
-        key_out.rebuild(2);
-        key_out.data<unsigned char>()[0] = key.key;
-        key_out.data<unsigned char>()[1] = key.down;
-        publisher.send(key_out, zmq::send_flags::none);
+        std::stringstream dbus_out;
+        dbus_out << std::setw(2) << std::setfill('0') << key.key << ":" << key.down;
+        emit_ping_signal(dconn, dbus_out.str());
         std::cout << "Key " << key.key << " pressed";
         if (key.down) {
             std::cout << " down." << std::endl;
