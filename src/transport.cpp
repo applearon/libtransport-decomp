@@ -1,6 +1,8 @@
 #include <hidapi/hidapi.h>
 #include <hidapi/hidapi_libusb.h>
 #include<iostream>
+#include <iomanip>
+#include <sstream>
 #include "stream_dock.hpp"
 #include"packets.hpp"
 #include<chrono>
@@ -9,9 +11,145 @@
 #include"stb_image.h"
 #include<thread>
 
-#include <zmq.hpp>
+#include<dbus/dbus.h>
+
 
 #define MAX_STR 255
+
+void emit_ping_signal(DBusConnection* conn, std::string msg) {
+    DBusMessage* signal = dbus_message_new_signal(
+        "/ca/applism/MiraDock", // object path
+        "ca.applism.miradock",  // interface
+        "KeyPress"              // signal name
+    );
+
+    if (!signal) {
+        std::cerr << "Failed to create signal\n";
+        return;
+    }
+
+    DBusMessageIter args;
+    dbus_message_iter_init_append(signal, &args);
+    if (!dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &msg)) {
+        std::cerr << "Out of memory when appending\n";
+        return;
+    }
+
+    if (!dbus_connection_send(conn, signal, nullptr)) {
+        std::cerr << "Out of memory when sending\n";
+    }
+    dbus_connection_flush(conn);
+    dbus_message_unref(signal);
+}
+
+void handle_dbus_events(DBusConnection *dconn, DBusMessage *msg, StreamDock *dock) {
+    if (msg == nullptr) return;
+    std::string interface = dbus_message_get_interface(msg);
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusError error;
+    dbus_error_init(&error);
+    if (interface == "org.freedesktop.DBus.Introspectable") {
+        const char* introspection_xml =
+            R"(<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+             "http://www.freedesktop.org/standards/dbus/2.0/introspect.dtd">
+            <node>
+              <interface name="ca.applism.miradock">
+                <method name="Refresh">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetCellBackground">
+                    <arg direction="in" type="q" name="cell" />
+                    <arg direction="in" type="s" name="path" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="ToggleScreen">
+                    <arg direction="in" type="b" name="on" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetFullBackground">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetBrightness">
+                    <arg direction="in" type="q" name="brightness" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="ClearFullBackground">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="ClearCellBackground">
+                    <arg direction="in" type="i" name="cell" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SendWakeup">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="Status">
+                    <arg direction="out" type="b" name="device_on" />
+                    <arg direction="out" type="b" name="screen_on" />
+                    <arg direction="out" type="i" name="brightness" />
+                </method>
+              </interface>
+              <interface name="org.freedesktop.DBus.Introspectable">
+                <method name="Introspect">
+                  <arg direction="out" type="s" name="data"/>
+                </method>
+              </interface>
+            </node>
+            )";
+        dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection_xml, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "Refresh")) {
+        int response = dock->refresh();
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetCellBackground")) {
+        const char* path;
+        uint16_t key;
+        int response = false; // if invalid arguments
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_UINT16, &key, DBUS_TYPE_STRING, &path, DBUS_TYPE_INVALID)) {
+            // Send reply
+            response = dock->set_cell_background(static_cast<enum key>(key), path);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ToggleScreen")) {
+        int on;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_BOOLEAN, &on, DBUS_TYPE_INVALID)) {
+            // Send reply
+            response = dock->toggle_screen(on);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetFullBackground")) { // uh uhm ill do this later
+
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetBrightness")) {
+        uint16_t brightness;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_UINT16, &brightness, DBUS_TYPE_INVALID)) {
+            response = true && dock->set_brightness(brightness);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ClearFullBackground")) {
+        int response = dock->clear_full_background();
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ClearCellBackground")){
+        int key;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_INT64, &key, DBUS_TYPE_INVALID)) {
+            response = true && dock->clear_cell_background(static_cast<enum key>(key));
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SendWakeup")) {
+        int response = dock->send_wakeup();
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "Status")) { // send brightness and if screen is on and if the device is on ig
+        int status = dock->is_good();
+        int screen = dock->is_screen_on();
+        int64_t brightness = dock->get_brightness();
+        dbus_message_append_args(reply,DBUS_TYPE_BOOLEAN, &status, DBUS_TYPE_BOOLEAN, &screen, DBUS_TYPE_INT64, &brightness, DBUS_TYPE_INVALID);
+    }
+    dbus_connection_send(dconn, reply, nullptr);
+    dbus_connection_flush(dconn);
+    dbus_message_unref(reply);
+    dbus_message_unref(msg);
+}
 
 void bad_apple(StreamDock *dock) {
     std::cout << "Starting bad apple..." << std::endl;
@@ -50,21 +188,32 @@ void bad_apple(StreamDock *dock) {
 }
 
 int main(void) {
-    std::thread apple;
-    zmq::context_t context (2); // idk what the 2 is tbh
-    zmq::socket_t publisher (context, zmq::socket_type::pub);
-    zmq::socket_t replier (context, zmq::socket_type::rep);
-    publisher.bind("tcp://*:40289");
-    replier.bind("tcp://*:40389");
-    zmq::message_t key_out(2);
-
+    //std::thread apple;
     StreamDock *dock = new StreamDock();
+    DBusError derr;
+    DBusConnection *dconn;
+    
+    dbus_error_init(&derr);
+
     if (!dock->is_good()) {
         std::cout << "Failed to open device" << std::endl;
         return 1;
     }
-    dock->refresh();
+
+    dock->refresh(); // Im like pretty sure we need this to start it up
     dock->set_brightness(100);
+
+    dconn = dbus_bus_get(DBUS_BUS_SESSION, &derr);
+    if (dbus_error_is_set(&derr)) {
+        std::cerr << "Connection Error: " << derr.message << std::endl;
+        return 1;
+    }
+    int dbus_req_res = dbus_bus_request_name(dconn, "ca.applism.miradock", DBUS_NAME_FLAG_REPLACE_EXISTING, &derr);
+    if (dbus_error_is_set(&derr) || dbus_req_res != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+        std::cerr << "Failed to claim dbus name: " << derr.message << std::endl;
+        return 1;
+    }
+
     int x,y,n;
     unsigned char *data = stbi_load("flower_power.png", &x, &y, &n, 3);
     if (data == NULL) {
@@ -81,53 +230,9 @@ int main(void) {
     const std::chrono::duration<double> diff = end - start;
     std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
+
     std::cout << "Starting Loop" << std::endl;
     while (true) {
-        zmq::message_t request;
-        auto res = replier.recv (request, zmq::recv_flags::dontwait);
-        if (res != std::nullopt) {
-            unsigned char *cmd = (unsigned char *) request.data();
-            switch ((int) cmd[0]) {
-                case RECV_GET_SCREEN_ON: {
-                    zmq::message_t reply (1);
-                    reply.data<unsigned char>()[0] = dock->is_screen_on();
-                    //memcpy (reply.data (), dock->is_screen_on(), 1);
-                   replier.send (reply, zmq::send_flags::none);
-                } break;
-                case RECV_REFRESH: {
-                    zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->refresh();
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_SET_BRIGHTNESS: {
-                    zmq::message_t reply(1);
-                    if (request.size() != 2) { // 2 bytes needed, packet and size
-                        reply.data<unsigned char>()[0] = false;
-                    } else {
-                        reply.data<unsigned char>()[0] = dock->set_brightness((int) cmd[1]);
-                    }
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_TOGGLE_SCREEN: {
-                    zmq::message_t reply(1);
-                    if (request.size() != 2) {
-                        reply.data<unsigned char>()[0] = dock->toggle_screen();
-                    } else {
-                        reply.data<unsigned char>()[0] = dock->toggle_screen((bool) cmd[1]);
-                    }
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_SET_FULL_BACKGROUND: {} break;
-                case RECV_SET_CELL_BACKGROUND: {} break;
-                case RECV_CLEAR_CELL_BACKGROUND: {} break;
-                case RECV_WAKEUP: {
-                    zmq::message_t reply(1);
-                    reply.data<unsigned char>()[0] = dock->send_wakeup();
-                    replier.send(reply, zmq::send_flags::none);
-                } break;
-                case RECV_STATUS: {} break;
-            }
-        }
         struct key_input key = dock->read();
         if (!dock->is_good()) {
             std::cout << "Device Disconnected. Reconnecting..." << std::endl;
@@ -138,23 +243,28 @@ int main(void) {
             }
             std::cout << "Reconnected!" << std::endl;
         }
-        if (key.key == ALL_KEYS) continue; // no input detected
-        key_out.rebuild(2);
-        key_out.data<unsigned char>()[0] = key.key;
-        key_out.data<unsigned char>()[1] = key.down;
-        publisher.send(key_out, zmq::send_flags::none);
-        std::cout << "Key " << key.key << " pressed";
-        if (key.down) {
-            std::cout << " down." << std::endl;
-        } else {
-            std::cout << " up." << std::endl;
+        dbus_connection_read_write(dconn, 0);
+        DBusMessage* msg = dbus_connection_pop_message(dconn);
+        //if (key.key == ALL_KEYS) continue; // no input detected
+        if (key.key != ALL_KEYS) {
+            std::stringstream dbus_out;
+            dbus_out << std::setw(2) << std::setfill('0') << key.key << ":" << key.down;
+            emit_ping_signal(dconn, dbus_out.str());
+            std::cout << "Key " << key.key << " pressed";
+            if (key.down) {
+                std::cout << " down." << std::endl;
+            } else {
+                std::cout << " up." << std::endl;
+            }
         }
+        handle_dbus_events(dconn, msg, dock);
         //if (key.key == 15) {
         //    dock->toggle_screen();
         // } else if (key.key == 14 && !key.down) {
         //    dock->clear_cell_background(key.key);
         //} else if (key.key == 13 && !key.down) {
-        //    apple = std::thread(bad_apple, dock);
+        //    //apple = std::thread(bad_apple, dock);
+        //    //std::cout << "uuw" << std::endl;
         //    //running = false;
         //    //apple.join();
         //    //bad_apple(dock);
