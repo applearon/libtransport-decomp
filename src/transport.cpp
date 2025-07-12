@@ -42,6 +42,115 @@ void emit_ping_signal(DBusConnection* conn, std::string msg) {
     dbus_message_unref(signal);
 }
 
+void handle_dbus_events(DBusConnection *dconn, DBusMessage *msg, StreamDock *dock) {
+    if (msg == nullptr) return;
+    std::string interface = dbus_message_get_interface(msg);
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    DBusError error;
+    dbus_error_init(&error);
+    if (interface == "org.freedesktop.DBus.Introspectable") {
+        const char* introspection_xml =
+            R"(<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+             "http://www.freedesktop.org/standards/dbus/2.0/introspect.dtd">
+            <node>
+              <interface name="ca.applism.miradock">
+                <method name="Refresh">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetCellBackground">
+                    <arg direction="in" type="q" name="cell" />
+                    <arg direction="in" type="s" name="path" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="ToggleScreen">
+                    <arg direction="in" type="b" name="on" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetFullBackground">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetBrightness">
+                    <arg direction="in" type="q" name="brightness" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="ClearFullBackground">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="ClearCellBackground">
+                    <arg direction="in" type="i" name="cell" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SendWakeup">
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="Status">
+                    <arg direction="out" type="b" name="device_on" />
+                    <arg direction="out" type="b" name="screen_on" />
+                    <arg direction="out" type="i" name="brightness" />
+                </method>
+              </interface>
+              <interface name="org.freedesktop.DBus.Introspectable">
+                <method name="Introspect">
+                  <arg direction="out" type="s" name="data"/>
+                </method>
+              </interface>
+            </node>
+            )";
+        dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection_xml, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "Refresh")) {
+        int response = dock->refresh();
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetCellBackground")) {
+        const char* path;
+        uint16_t key;
+        int response = false; // if invalid arguments
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_UINT16, &key, DBUS_TYPE_STRING, &path, DBUS_TYPE_INVALID)) {
+            // Send reply
+            response = dock->set_cell_background(static_cast<enum key>(key), path);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ToggleScreen")) {
+        int on;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_BOOLEAN, &on, DBUS_TYPE_INVALID)) {
+            // Send reply
+            response = dock->toggle_screen(on);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetFullBackground")) { // uh uhm ill do this later
+
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetBrightness")) {
+        uint16_t brightness;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_UINT16, &brightness, DBUS_TYPE_INVALID)) {
+            response = true && dock->set_brightness(brightness);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ClearFullBackground")) {
+        int response = dock->clear_full_background();
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ClearCellBackground")){
+        int key;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_INT64, &key, DBUS_TYPE_INVALID)) {
+            response = true && dock->clear_cell_background(static_cast<enum key>(key));
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SendWakeup")) {
+        int response = dock->send_wakeup();
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "Status")) { // send brightness and if screen is on and if the device is on ig
+        int status = dock->is_good();
+        int screen = dock->is_screen_on();
+        int64_t brightness = dock->get_brightness();
+        dbus_message_append_args(reply,DBUS_TYPE_BOOLEAN, &status, DBUS_TYPE_BOOLEAN, &screen, DBUS_TYPE_INT64, &brightness, DBUS_TYPE_INVALID);
+    }
+    dbus_connection_send(dconn, reply, nullptr);
+    dbus_connection_flush(dconn);
+    dbus_message_unref(reply);
+    dbus_message_unref(msg);
+}
+
 void bad_apple(StreamDock *dock) {
     std::cout << "Starting bad apple..." << std::endl;
     const size_t total_frames = 6572;
@@ -134,16 +243,21 @@ int main(void) {
             }
             std::cout << "Reconnected!" << std::endl;
         }
-        if (key.key == ALL_KEYS) continue; // no input detected
-        std::stringstream dbus_out;
-        dbus_out << std::setw(2) << std::setfill('0') << key.key << ":" << key.down;
-        emit_ping_signal(dconn, dbus_out.str());
-        std::cout << "Key " << key.key << " pressed";
-        if (key.down) {
-            std::cout << " down." << std::endl;
-        } else {
-            std::cout << " up." << std::endl;
+        dbus_connection_read_write(dconn, 0);
+        DBusMessage* msg = dbus_connection_pop_message(dconn);
+        //if (key.key == ALL_KEYS) continue; // no input detected
+        if (key.key != ALL_KEYS) {
+            std::stringstream dbus_out;
+            dbus_out << std::setw(2) << std::setfill('0') << key.key << ":" << key.down;
+            emit_ping_signal(dconn, dbus_out.str());
+            std::cout << "Key " << key.key << " pressed";
+            if (key.down) {
+                std::cout << " down." << std::endl;
+            } else {
+                std::cout << " up." << std::endl;
+            }
         }
+        handle_dbus_events(dconn, msg, dock);
         //if (key.key == 15) {
         //    dock->toggle_screen();
         // } else if (key.key == 14 && !key.down) {

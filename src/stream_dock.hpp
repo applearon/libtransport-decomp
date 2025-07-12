@@ -12,6 +12,7 @@ class StreamDock {
         unsigned char buf[513];
         bool screen_on = true;
         bool good = true;
+        int brightness = 100;
     public:
         hid_device *hid = nullptr;
         StreamDock();
@@ -27,6 +28,7 @@ class StreamDock {
         bool send_wakeup();
         bool is_good();
         bool is_screen_on();
+        int get_brightness();
 };
 
 #endif

@@ -40,6 +40,7 @@ bool StreamDock::set_brightness(int brightness) {
     }
     unsigned char out[13] = GEN_PACKET(BRIGHTNESS_PACKET SPACER_PACKET (unsigned char) brightness);
     hid_write(this->hid,out, PACKET_SIZE + 1);
+    this->brightness = brightness;
     return true;
 }
 
@@ -167,3 +168,6 @@ bool StreamDock::is_screen_on() {
     return screen_on;
 }
 
+int StreamDock::get_brightness() {
+    return brightness;
+}
