@@ -34,9 +34,13 @@ make -j4
 ```
 # DBus
 A dbus interface is opened to signal keypress events:
+
 Object Path: `/ca/applism/MiraDock`
+
 Interface: `ca.applism.miradock`
+
 Signal Name: `KeyPress`
+
 A simple python script to read keypresses can be found in `examples/mira_reader.py`
 
 
