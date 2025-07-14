@@ -88,7 +88,27 @@ bool StreamDock::set_full_background(unsigned char *img_buf) {
     }
     return true;
 }
-
+bool StreamDock::set_cell_background(enum key key, unsigned char *img_buf, unsigned int length) {
+        unsigned char real_key;
+    if (key == 0xff) {
+        real_key = key;
+    } else {
+        // thank you to my friend for find this extremely cursed code
+        // all it does is turns 1-5 -> 11-15, 6-10 -> 6-10, 11-15 -> 1-5
+        // ie "vertically flipping" the keys
+        real_key = ((key - 1) % 5) + 5 * (2 - (key - 1) / 5) + 1;
+    }
+    unsigned char size_bigger = length >> 8;
+    unsigned char size_smaller = length % 256; 
+    unsigned char out[PACKET_SIZE + 1] = GEN_PACKET(SET_CELL_IMG SPACER_PACKET size_bigger, size_smaller, real_key);
+    hid_write(this->hid, out, PACKET_SIZE + 1);
+    unsigned char img_out[PACKET_SIZE + 1] = {'\0'};
+    for (unsigned int i = 0; i <= length; i += PACKET_SIZE) {
+        memcpy(img_out+1, img_buf + i, PACKET_SIZE);
+        hid_write(this->hid, img_out, PACKET_SIZE + 1);
+    }
+    return true;
+}
 bool StreamDock::set_cell_background(enum key key, std::string path) {
         unsigned char real_key;
     if (key == 0xff) {

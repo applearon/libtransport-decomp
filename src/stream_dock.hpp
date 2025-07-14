@@ -23,6 +23,7 @@ class StreamDock {
         bool toggle_screen();
         bool set_full_background(unsigned char *img_buf);
         bool set_cell_background(enum key key, std::string path);
+        bool set_cell_background(enum key key, unsigned char *img_buf, unsigned int length);
         bool clear_full_background();
         bool clear_cell_background(enum key key);
         bool send_wakeup();

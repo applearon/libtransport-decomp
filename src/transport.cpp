@@ -57,9 +57,14 @@ void handle_dbus_events(DBusConnection *dconn, DBusMessage *msg, StreamDock *doc
                 <method name="Refresh">
                     <arg direction="out" type="b" name="success" />
                 </method>
-                <method name="SetCellBackground">
+                <method name="SetCellBackgroundPath">
                     <arg direction="in" type="q" name="cell" />
                     <arg direction="in" type="s" name="path" />
+                    <arg direction="out" type="b" name="success" />
+                </method>
+                <method name="SetCellBackground">
+                    <arg direction="in" type="q" name="cell" />
+                    <arg direction="in" type="ay" name="jpgdata" />
                     <arg direction="out" type="b" name="success" />
                 </method>
                 <method name="ToggleScreen">
@@ -67,6 +72,7 @@ void handle_dbus_events(DBusConnection *dconn, DBusMessage *msg, StreamDock *doc
                     <arg direction="out" type="b" name="success" />
                 </method>
                 <method name="SetFullBackground">
+                    <arg direction="in" type="ay" name="photobuffer" />
                     <arg direction="out" type="b" name="success" />
                 </method>
                 <method name="SetBrightness">
@@ -100,13 +106,22 @@ void handle_dbus_events(DBusConnection *dconn, DBusMessage *msg, StreamDock *doc
     } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "Refresh")) {
         int response = dock->refresh();
         dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
-    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetCellBackground")) {
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetCellBackgroundPath")) {
         const char* path;
         uint16_t key;
         int response = false; // if invalid arguments
         if (dbus_message_get_args(msg, &error, DBUS_TYPE_UINT16, &key, DBUS_TYPE_STRING, &path, DBUS_TYPE_INVALID)) {
             // Send reply
             response = dock->set_cell_background(static_cast<enum key>(key), path);
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
+    } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetCellBackground")) {
+        int response = false;
+        unsigned char *bytes = nullptr;
+        int length = 0;
+        uint16_t key = ALL_KEYS;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_UINT16, &key, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &bytes, &length, DBUS_TYPE_INVALID)) {
+            response = dock->set_cell_background(static_cast<enum key>(key), bytes, length);
         }
         dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
     } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "ToggleScreen")) {
@@ -118,7 +133,16 @@ void handle_dbus_events(DBusConnection *dconn, DBusMessage *msg, StreamDock *doc
         }
         dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
     } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetFullBackground")) { // uh uhm ill do this later
-
+        unsigned char *bytes = nullptr;
+        int length = 0;
+        int response = false;
+        if (dbus_message_get_args(msg, &error, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &bytes, &length, DBUS_TYPE_INVALID)){
+            std::cout << length << std::endl;
+            response = dock->set_full_background(bytes);
+            std::cout << "owo" << std::endl;
+            dock->refresh();
+        }
+        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &response, DBUS_TYPE_INVALID);
     } else if (dbus_message_is_method_call(msg, "ca.applism.miradock", "SetBrightness")) {
         uint16_t brightness;
         int response = false;
