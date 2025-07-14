@@ -238,21 +238,22 @@ int main(void) {
         return 1;
     }
 
-    int x,y,n;
-    unsigned char *data = stbi_load("flower_power.png", &x, &y, &n, 3);
-    if (data == NULL) {
-        std::cout << "Failed to load image." <<std::endl;
-        return 1;
-    }
-    std::cout << "Setting the background image..." << std::endl;
-    const auto start = std::chrono::system_clock::now();
-    dock->refresh();
+    //int x,y,n;
+    //unsigned char *data = stbi_load("flower_power.png", &x, &y, &n, 3);
+    //if (data == NULL) {
+    //    std::cout << "Failed to load image." <<std::endl;
+    //    return 1;
+    //}
+    //std::cout << "Setting the background image..." << std::endl;
+    //const auto start = std::chrono::system_clock::now();
+    std::cout << "Initializing..." << std::endl;
+    //dock->refresh();
     dock->send_wakeup();
     //dock->set_full_background(data);
-    const auto end = std::chrono::system_clock::now();
-    stbi_image_free(data);
-    const std::chrono::duration<double> diff = end - start;
-    std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
+    //const auto end = std::chrono::system_clock::now();
+    //stbi_image_free(data);
+    //const std::chrono::duration<double> diff = end - start;
+    //std::cout << "Loading the image took " << diff.count() << " seconds." << std::endl;
     dock->refresh();
 
     std::cout << "Starting Loop" << std::endl;
